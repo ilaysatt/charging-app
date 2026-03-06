@@ -143,6 +143,11 @@ def index():
         "SELECT DISTINCT strftime('%Y-%m', date) FROM charges ORDER BY 1 DESC"
     ).fetchall()]
 
+    last_vin_row = conn.execute(
+        "SELECT vin FROM charges ORDER BY id DESC LIMIT 1"
+    ).fetchone()
+    last_vin = last_vin_row["vin"] if last_vin_row else ""
+
     kwh_per_pct = get_kwh_per_pct()
     price_per_kwh = get_price_per_kwh()
     conn.close()
@@ -158,6 +163,7 @@ def index():
         months=months,
         filter_vin=filter_vin,
         filter_month=filter_month,
+        last_vin=last_vin,
     )
 
 
