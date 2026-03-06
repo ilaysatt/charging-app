@@ -1,10 +1,9 @@
 import csv
 import io
-import secrets
 import sqlite3
 import os
-from datetime import datetime
-from flask import Flask, render_template, request, redirect, url_for, Response, abort
+from datetime import datetime, date
+from flask import Flask, render_template, request, redirect, url_for, jsonify, Response
 from fpdf import FPDF
 
 app = Flask(__name__)
@@ -20,24 +19,14 @@ def get_db():
 def init_db():
     conn = get_db()
     conn.execute("""
-        CREATE TABLE IF NOT EXISTS sessions (
-            token TEXT PRIMARY KEY,
-            name TEXT NOT NULL DEFAULT '',
-            created_at TEXT NOT NULL DEFAULT (datetime('now'))
-        )
-    """)
-    conn.execute("""
         CREATE TABLE IF NOT EXISTS settings (
-            session_token TEXT NOT NULL,
-            key TEXT NOT NULL,
-            value TEXT NOT NULL,
-            PRIMARY KEY (session_token, key)
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL
         )
     """)
     conn.execute("""
         CREATE TABLE IF NOT EXISTS charges (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            session_token TEXT NOT NULL,
             date TEXT NOT NULL,
             kwh REAL NOT NULL,
             start_pct REAL,
@@ -47,71 +36,50 @@ def init_db():
             created_at TEXT NOT NULL DEFAULT (datetime('now'))
         )
     """)
-    conn.commit()
-    conn.close()
-
-
-def create_session(name=""):
-    token = secrets.token_urlsafe(12)
-    conn = get_db()
-    conn.execute("INSERT INTO sessions (token, name) VALUES (?, ?)", (token, name))
+    # Add vin column to existing databases
+    try:
+        conn.execute("ALTER TABLE charges ADD COLUMN vin TEXT NOT NULL DEFAULT ''")
+    except sqlite3.OperationalError:
+        pass
+    # Default kWh per percent - user can change in settings
     conn.execute(
-        "INSERT INTO settings (session_token, key, value) VALUES (?, ?, ?)",
-        (token, "kwh_per_pct", "2.05"),
+        "INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)",
+        ("kwh_per_pct", "2.05"),
     )
     conn.execute(
-        "INSERT INTO settings (session_token, key, value) VALUES (?, ?, ?)",
-        (token, "price_per_kwh", "0.35"),
+        "INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)",
+        ("price_per_kwh", "0.35"),
     )
     conn.commit()
     conn.close()
-    return token
 
 
-def get_session_or_404(token):
-    conn = get_db()
-    row = conn.execute("SELECT * FROM sessions WHERE token = ?", (token,)).fetchone()
-    conn.close()
-    if not row:
-        abort(404)
-    return row
-
-
-def get_setting(token, key, default):
+def get_setting(key, default):
     conn = get_db()
     row = conn.execute(
-        "SELECT value FROM settings WHERE session_token = ? AND key = ?", (token, key)
+        "SELECT value FROM settings WHERE key = ?", (key,)
     ).fetchone()
     conn.close()
     return float(row["value"]) if row else default
 
 
-# --- Landing page ---
+def get_kwh_per_pct():
+    return get_setting("kwh_per_pct", 2.05)
+
+
+def get_price_per_kwh():
+    return get_setting("price_per_kwh", 0.35)
+
 
 @app.route("/")
-def home():
-    return render_template("home.html")
-
-
-@app.route("/new", methods=["POST"])
-def new_session():
-    name = (request.form.get("name") or "").strip()
-    token = create_session(name)
-    return redirect(url_for("index", token=token))
-
-
-# --- Session-scoped routes ---
-
-@app.route("/s/<token>")
-def index(token):
-    get_session_or_404(token)
+def index():
     conn = get_db()
 
     filter_vin = request.args.get("vin", "")
     filter_month = request.args.get("month", "")
 
-    query = "SELECT * FROM charges WHERE session_token = ?"
-    params = [token]
+    query = "SELECT * FROM charges WHERE 1=1"
+    params = []
     if filter_vin:
         query += " AND vin = ?"
         params.append(filter_vin)
@@ -125,21 +93,19 @@ def index(token):
     count = len(charges)
     avg_kwh = total_kwh / count if count > 0 else 0
 
+    # Get distinct VINs and months for filter dropdowns
     vins = [r[0] for r in conn.execute(
-        "SELECT DISTINCT vin FROM charges WHERE session_token = ? AND vin != '' ORDER BY vin",
-        (token,),
+        "SELECT DISTINCT vin FROM charges WHERE vin != '' ORDER BY vin"
     ).fetchall()]
     months = [r[0] for r in conn.execute(
-        "SELECT DISTINCT strftime('%Y-%m', date) FROM charges WHERE session_token = ? ORDER BY 1 DESC",
-        (token,),
+        "SELECT DISTINCT strftime('%Y-%m', date) FROM charges ORDER BY 1 DESC"
     ).fetchall()]
 
-    kwh_per_pct = get_setting(token, "kwh_per_pct", 2.05)
-    price_per_kwh = get_setting(token, "price_per_kwh", 0.35)
+    kwh_per_pct = get_kwh_per_pct()
+    price_per_kwh = get_price_per_kwh()
     conn.close()
     return render_template(
         "index.html",
-        token=token,
         charges=charges,
         total_kwh=round(total_kwh, 2),
         avg_kwh=round(avg_kwh, 2),
@@ -153,9 +119,8 @@ def index(token):
     )
 
 
-@app.route("/s/<token>/add", methods=["POST"])
-def add_charge(token):
-    get_session_or_404(token)
+@app.route("/add", methods=["POST"])
+def add_charge():
     input_method = request.form.get("input_method")
     date_str = request.form.get("date") or datetime.now().strftime("%Y-%m-%d")
 
@@ -166,60 +131,56 @@ def add_charge(token):
     elif input_method == "percentage":
         start_pct = float(request.form.get("start_pct") or 0)
         end_pct = float(request.form.get("end_pct") or 0)
-        kwh_per_pct = float(request.form.get("kwh_per_pct") or get_setting(token, "kwh_per_pct", 2.05))
+        kwh_per_pct = float(request.form.get("kwh_per_pct") or get_kwh_per_pct())
         kwh = round((end_pct - start_pct) * kwh_per_pct, 2)
     else:
-        return redirect(url_for("index", token=token))
+        return redirect(url_for("index"))
 
     if kwh <= 0:
-        return redirect(url_for("index", token=token))
+        return redirect(url_for("index"))
 
     vin = (request.form.get("vin") or "").strip().upper()
 
     conn = get_db()
     conn.execute(
-        """INSERT INTO charges (session_token, date, kwh, start_pct, end_pct, input_method, vin)
-           VALUES (?, ?, ?, ?, ?, ?, ?)""",
-        (token, date_str, kwh, start_pct, end_pct, input_method, vin),
+        """INSERT INTO charges (date, kwh, start_pct, end_pct, input_method, vin)
+           VALUES (?, ?, ?, ?, ?, ?)""",
+        (date_str, kwh, start_pct, end_pct, input_method, vin),
     )
     conn.commit()
     conn.close()
-    return redirect(url_for("index", token=token))
+    return redirect(url_for("index"))
 
 
-@app.route("/s/<token>/delete/<int:charge_id>", methods=["POST"])
-def delete_charge(token, charge_id):
-    get_session_or_404(token)
+@app.route("/delete/<int:charge_id>", methods=["POST"])
+def delete_charge(charge_id):
     conn = get_db()
-    conn.execute("DELETE FROM charges WHERE id = ? AND session_token = ?", (charge_id, token))
+    conn.execute("DELETE FROM charges WHERE id = ?", (charge_id,))
     conn.commit()
     conn.close()
-    return redirect(url_for("index", token=token))
+    return redirect(url_for("index"))
 
 
-@app.route("/s/<token>/settings", methods=["POST"])
-def update_settings(token):
-    get_session_or_404(token)
+@app.route("/settings", methods=["POST"])
+def update_settings():
     conn = get_db()
     for key in ("kwh_per_pct", "price_per_kwh"):
         val = request.form.get(key)
         if val:
             conn.execute(
-                "INSERT OR REPLACE INTO settings (session_token, key, value) VALUES (?, ?, ?)",
-                (token, key, str(float(val))),
+                "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
+                (key, str(float(val))),
             )
     conn.commit()
     conn.close()
-    return redirect(url_for("index", token=token))
+    return redirect(url_for("index"))
 
 
-@app.route("/s/<token>/export")
-def export_csv(token):
-    get_session_or_404(token)
+@app.route("/export")
+def export_csv():
     conn = get_db()
     charges = conn.execute(
-        "SELECT * FROM charges WHERE session_token = ? ORDER BY date DESC, id DESC",
-        (token,),
+        "SELECT * FROM charges ORDER BY date DESC, id DESC"
     ).fetchall()
     conn.close()
 
@@ -243,23 +204,26 @@ def export_csv(token):
     )
 
 
-@app.route("/s/<token>/report")
-def report(token):
-    get_session_or_404(token)
+@app.route("/report")
+def report():
     date_from = request.args.get("from", "")
     date_to = request.args.get("to", "")
-    price_per_kwh = get_setting(token, "price_per_kwh", 0.35)
+    price_per_kwh = get_price_per_kwh()
 
     conn = get_db()
+    vins = [r[0] for r in conn.execute(
+        "SELECT DISTINCT vin FROM charges WHERE vin != '' ORDER BY vin"
+    ).fetchall()]
+
     summary = []
     if date_from and date_to:
         rows = conn.execute(
             """SELECT vin, SUM(kwh) as total_kwh, COUNT(*) as sessions
                FROM charges
-               WHERE session_token = ? AND date >= ? AND date <= ?
+               WHERE date >= ? AND date <= ?
                GROUP BY vin
                ORDER BY vin""",
-            (token, date_from, date_to),
+            (date_from, date_to),
         ).fetchall()
         for r in rows:
             summary.append({
@@ -273,7 +237,6 @@ def report(token):
     conn.close()
     return render_template(
         "report.html",
-        token=token,
         summary=summary,
         date_from=date_from,
         date_to=date_to,
@@ -281,28 +244,27 @@ def report(token):
     )
 
 
-@app.route("/s/<token>/report/pdf")
-def report_pdf(token):
-    get_session_or_404(token)
+@app.route("/report/pdf")
+def report_pdf():
     date_from = request.args.get("from", "")
     date_to = request.args.get("to", "")
     vin = request.args.get("vin", "")
-    price_per_kwh = get_setting(token, "price_per_kwh", 0.35)
+    price_per_kwh = get_price_per_kwh()
 
     if not date_from or not date_to or not vin:
-        return redirect(url_for("report", token=token))
+        return redirect(url_for("report"))
 
     conn = get_db()
     charges = conn.execute(
         """SELECT * FROM charges
-           WHERE session_token = ? AND date >= ? AND date <= ? AND vin = ?
+           WHERE date >= ? AND date <= ? AND vin = ?
            ORDER BY date ASC""",
-        (token, date_from, date_to, vin),
+        (date_from, date_to, vin),
     ).fetchall()
     conn.close()
 
     if not charges:
-        return redirect(url_for("report", token=token, **{"from": date_from, "to": date_to}))
+        return redirect(url_for("report", **{"from": date_from, "to": date_to}))
 
     pdf = FPDF()
     pdf.add_page()
@@ -314,6 +276,7 @@ def report_pdf(token):
     pdf.cell(0, 8, "Price per kWh: %s" % price_per_kwh, ln=True)
     pdf.ln(5)
 
+    # Table header
     pdf.set_font("Helvetica", "B", 10)
     pdf.cell(30, 8, "Date", border=1)
     pdf.cell(35, 8, "kWh", border=1, align="C")
@@ -323,6 +286,7 @@ def report_pdf(token):
     pdf.cell(30, 8, "Method", border=1, align="C")
     pdf.ln()
 
+    # Table rows
     pdf.set_font("Helvetica", "", 10)
     total_kwh = 0
     total_cost = 0
@@ -338,6 +302,7 @@ def report_pdf(token):
         pdf.cell(30, 8, c["input_method"], border=1, align="C")
         pdf.ln()
 
+    # Totals row
     pdf.set_font("Helvetica", "B", 10)
     pdf.cell(30, 8, "TOTAL", border=1)
     pdf.cell(35, 8, "%.2f" % total_kwh, border=1, align="C")
