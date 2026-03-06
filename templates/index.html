@@ -231,7 +231,12 @@
     </div>
 
     <div class="table-card">
-        <h2 style="padding: 1rem 1rem 0;">Charge History</h2>
+        <div style="padding: 1rem 1rem 0; display: flex; justify-content: space-between; align-items: center;">
+            <h2 style="margin-bottom: 0;">Charge History</h2>
+            {% if charges %}
+            <a href="/export" class="btn-settings" style="text-decoration: none;">Export CSV</a>
+            {% endif %}
+        </div>
         {% if charges %}
         <table>
             <thead>

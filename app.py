@@ -1,7 +1,9 @@
+import csv
+import io
 import sqlite3
 import os
 from datetime import datetime
-from flask import Flask, render_template, request, redirect, url_for, jsonify
+from flask import Flask, render_template, request, redirect, url_for, jsonify, Response
 
 app = Flask(__name__)
 DB_PATH = os.path.join(os.path.dirname(__file__), "charging.db")
@@ -123,6 +125,33 @@ def update_settings():
         conn.commit()
         conn.close()
     return redirect(url_for("index"))
+
+
+@app.route("/export")
+def export_csv():
+    conn = get_db()
+    charges = conn.execute(
+        "SELECT * FROM charges ORDER BY date DESC, id DESC"
+    ).fetchall()
+    conn.close()
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Date", "kWh", "Start %", "End %", "Input Method"])
+    for c in charges:
+        writer.writerow([
+            c["date"],
+            c["kwh"],
+            c["start_pct"] if c["start_pct"] is not None else "",
+            c["end_pct"] if c["end_pct"] is not None else "",
+            c["input_method"],
+        ])
+
+    return Response(
+        output.getvalue(),
+        mimetype="text/csv",
+        headers={"Content-Disposition": "attachment; filename=charges.csv"},
+    )
 
 
 init_db()
