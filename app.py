@@ -289,16 +289,20 @@ def export_csv():
     charges = conn.execute(
         "SELECT * FROM charges ORDER BY date DESC, id DESC"
     ).fetchall()
+    price_per_kwh = float(
+        conn.execute("SELECT value FROM settings WHERE key='price_per_kwh'").fetchone()["value"]
+    )
     conn.close()
 
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["Date", "VIN", "kWh", "Start %", "End %", "Input Method"])
+    writer.writerow(["Date", "VIN", "kWh", "Cost", "Start %", "End %", "Input Method"])
     for c in charges:
         writer.writerow([
             c["date"],
             c["vin"],
             c["kwh"],
+            round(c["kwh"] * price_per_kwh, 4),
             c["start_pct"] if c["start_pct"] is not None else "",
             c["end_pct"] if c["end_pct"] is not None else "",
             c["input_method"],
