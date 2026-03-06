@@ -182,7 +182,10 @@ def add_charge():
         return redirect(url_for("index"))
 
     vin = (request.form.get("vin") or "").strip().upper()
-    photo_start = save_photo(request.files.get("photo_start"))
+    if input_method == "percentage":
+        photo_start = save_photo(request.files.get("photo_start_pct"))
+    else:
+        photo_start = save_photo(request.files.get("photo_start"))
     photo_end = save_photo(request.files.get("photo_end"))
 
     conn = get_db()

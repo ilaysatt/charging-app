@@ -293,14 +293,22 @@
                 <div id="calc-preview" class="calc-preview" style="display:none;"></div>
             </div>
 
-            <div class="form-row">
+            <div id="photos-kwh">
                 <div class="form-group">
-                    <label>Photo - Start of Charge</label>
+                    <label>Photo</label>
                     <input type="file" name="photo_start" accept="image/*">
                 </div>
-                <div class="form-group">
-                    <label>Photo - End of Charge</label>
-                    <input type="file" name="photo_end" accept="image/*">
+            </div>
+            <div id="photos-pct" style="display:none;">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Photo - Start of Charge</label>
+                        <input type="file" name="photo_start_pct" accept="image/*">
+                    </div>
+                    <div class="form-group">
+                        <label>Photo - End of Charge</label>
+                        <input type="file" name="photo_end" accept="image/*">
+                    </div>
                 </div>
             </div>
 
@@ -414,6 +422,8 @@
 
         document.getElementById('kwh-fields').style.display = method === 'kwh' ? 'block' : 'none';
         document.getElementById('pct-fields').style.display = method === 'percentage' ? 'block' : 'none';
+        document.getElementById('photos-kwh').style.display = method === 'kwh' ? 'block' : 'none';
+        document.getElementById('photos-pct').style.display = method === 'percentage' ? 'block' : 'none';
     }
 
     function calcPreview() {
