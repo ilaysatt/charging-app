@@ -111,7 +111,8 @@
             border-radius: 12px;
             overflow: hidden;
         }
-        table { width: 100%; border-collapse: collapse; }
+        .table-scroll { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; min-width: 700px; }
         thead th {
             text-align: left;
             padding: 0.8rem 1rem;
@@ -312,7 +313,7 @@
                 </div>
             </div>
 
-            <button type="submit" class="btn-submit">Add Charge</button>
+            <button type="submit" class="btn-submit" id="submit-btn">Add Charge</button>
         </form>
     </div>
 
@@ -344,6 +345,7 @@
             </div>
         </form>
         {% if charges %}
+        <div class="table-scroll">
         <table>
             <thead>
                 <tr>
@@ -393,6 +395,7 @@
                 {% endfor %}
             </tbody>
         </table>
+        </div>
         {% else %}
         <div class="empty-state">No charges logged yet. Add your first charge above.</div>
         {% endif %}
@@ -425,6 +428,13 @@
         document.getElementById('photos-kwh').style.display = method === 'kwh' ? 'block' : 'none';
         document.getElementById('photos-pct').style.display = method === 'percentage' ? 'block' : 'none';
     }
+
+    document.getElementById('charge-form').addEventListener('submit', function() {
+        var btn = document.getElementById('submit-btn');
+        btn.textContent = 'Uploading...';
+        btn.disabled = true;
+        btn.style.opacity = '0.6';
+    });
 
     function calcPreview() {
         const start = parseFloat(document.getElementById('start-pct').value);
