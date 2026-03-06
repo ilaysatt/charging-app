@@ -174,6 +174,26 @@
             margin-bottom: 1rem;
         }
 
+        .info-section {
+            background: #1e293b;
+            border-radius: 12px;
+            padding: 1.2rem 1.5rem;
+            margin-top: 2rem;
+            font-size: 0.85rem;
+            color: #94a3b8;
+        }
+        .info-section summary {
+            cursor: pointer;
+            color: #38bdf8;
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+        .info-section ul {
+            margin-top: 0.8rem;
+            padding-left: 1.2rem;
+        }
+        .info-section li { padding: 0.25rem 0; }
+
         @media (max-width: 600px) {
             .stats { grid-template-columns: 1fr; }
             .form-row { grid-template-columns: 1fr; }
@@ -342,6 +362,18 @@
         <div class="empty-state">No charges logged yet. Add your first charge above.</div>
         {% endif %}
     </div>
+
+    <details class="info-section">
+        <summary>How to use this app</summary>
+        <ul>
+            <li>Track EV charging costs per vehicle (by VIN)</li>
+            <li>Log charges by entering battery start/end % or direct kWh</li>
+            <li>Set your electricity price and kWh per 1% at the top</li>
+            <li>Filter history by VIN or month</li>
+            <li>Go to Reports to generate per-VIN summaries by date range</li>
+            <li>Export reports as PDF or download all data as CSV</li>
+        </ul>
+    </details>
 </div>
 
 <script>
