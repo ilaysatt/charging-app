@@ -338,7 +338,7 @@ def report():
                 "vin_raw": r["vin"],
                 "total_kwh": round(r["total_kwh"], 2),
                 "sessions": r["sessions"],
-                "total_cost": round(r["total_kwh"] * price_per_kwh, 2),
+                "total_cost": round(r["total_kwh"] * price_per_kwh, 4),
             })
 
     conn.close()
@@ -406,7 +406,7 @@ def report_pdf():
     total_kwh = 0
     total_cost = 0
     for i, c in enumerate(charges, 1):
-        cost = round(c["kwh"] * price_per_kwh, 2)
+        cost = round(c["kwh"] * price_per_kwh, 4)
         total_kwh += c["kwh"]
         total_cost += cost
         pdf.set_link(data_links[i], y=pdf.get_y(), page=pdf.page)
@@ -419,7 +419,7 @@ def report_pdf():
             pdf.cell(10, 8, str(i), border=1, align="C")
         pdf.cell(28, 8, c["date"][:10], border=1)
         pdf.cell(30, 8, "%.2f" % c["kwh"], border=1, align="C")
-        pdf.cell(30, 8, "%.2f" % cost, border=1, align="C")
+        pdf.cell(30, 8, "%.4f" % cost, border=1, align="C")
         pdf.cell(22, 8, "%.0f" % c["start_pct"] if c["start_pct"] is not None else "-", border=1, align="C")
         pdf.cell(22, 8, "%.0f" % c["end_pct"] if c["end_pct"] is not None else "-", border=1, align="C")
         pdf.cell(28, 8, c["input_method"], border=1, align="C")
@@ -430,7 +430,7 @@ def report_pdf():
     pdf.cell(10, 8, "", border=1)
     pdf.cell(28, 8, "TOTAL", border=1)
     pdf.cell(30, 8, "%.2f" % total_kwh, border=1, align="C")
-    pdf.cell(30, 8, "%.2f" % total_cost, border=1, align="C")
+    pdf.cell(30, 8, "%.4f" % total_cost, border=1, align="C")
     pdf.cell(72, 8, "", border=1)
 
     # Photos table

@@ -355,7 +355,7 @@
                     <td>{{ c.date[:10] }}</td>
                     <td>{{ c.vin or '—' }}</td>
                     <td class="kwh-cell">{{ "%.2f"|format(c.kwh) }}</td>
-                    <td>{{ "%.2f"|format(c.kwh * price_per_kwh) }}</td>
+                    <td>{{ "%.4f"|format(c.kwh * price_per_kwh) }}</td>
                     <td>
                         {% if c.input_method == 'percentage' %}
                             {{ "%.0f"|format(c.start_pct) }}% &rarr; {{ "%.0f"|format(c.end_pct) }}%
