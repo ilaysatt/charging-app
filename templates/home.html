@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Charging Tracker</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #0f172a;
+            color: #e2e8f0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem 1rem;
+        }
+        .card {
+            background: #1e293b;
+            border-radius: 12px;
+            padding: 2.5rem;
+            max-width: 420px;
+            width: 100%;
+            text-align: center;
+        }
+        h1 { font-size: 1.8rem; color: #38bdf8; margin-bottom: 0.5rem; }
+        p { color: #94a3b8; margin-bottom: 2rem; font-size: 0.95rem; }
+        .form-group { margin-bottom: 1.2rem; text-align: left; }
+        .form-group label { display: block; margin-bottom: 0.4rem; font-size: 0.85rem; color: #94a3b8; }
+        .form-group input {
+            width: 100%;
+            padding: 0.6rem 0.8rem;
+            border-radius: 8px;
+            border: 1px solid #334155;
+            background: #0f172a;
+            color: #e2e8f0;
+            font-size: 1rem;
+        }
+        .form-group input:focus { outline: none; border-color: #38bdf8; }
+        .btn {
+            width: 100%;
+            padding: 0.7rem;
+            border-radius: 8px;
+            border: none;
+            background: #38bdf8;
+            color: #0f172a;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .btn:hover { background: #7dd3fc; }
+        .hint { margin-top: 1.5rem; font-size: 0.8rem; color: #64748b; }
+    </style>
+</head>
+<body>
+<div class="card">
+    <h1>Charging Tracker</h1>
+    <p>Create your own session to start tracking charges.</p>
+    <form action="/new" method="POST">
+        <div class="form-group">
+            <label>Your Name (optional)</label>
+            <input type="text" name="name" placeholder="e.g. Ilay">
+        </div>
+        <button type="submit" class="btn">Create Session</button>
+    </form>
+    <p class="hint">You'll get a unique link to bookmark and share.</p>
+</div>
+</body>
+</html>

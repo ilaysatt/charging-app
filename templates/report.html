@@ -81,12 +81,12 @@
 <div class="container">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
         <h1>Charging Report</h1>
-        <a href="/" class="btn btn-outline" style="text-decoration: none;">Back</a>
+        <a href="/s/{{ token }}" class="btn btn-outline" style="text-decoration: none;">Back</a>
     </div>
 
     <div class="card">
         <h2>Select Date Range</h2>
-        <form method="GET" action="/report">
+        <form method="GET" action="/s/{{ token }}/report">
             <div class="form-row">
                 <div class="form-group">
                     <label>From</label>
@@ -126,7 +126,7 @@
                     <td class="kwh-cell">{{ "%.2f"|format(s.total_kwh) }}</td>
                     <td>{{ "%.2f"|format(s.total_cost) }}</td>
                     <td>
-                        <a href="/report/pdf?from={{ date_from }}&to={{ date_to }}&vin={{ s.vin_raw }}"
+                        <a href="/s/{{ token }}/report/pdf?from={{ date_from }}&to={{ date_to }}&vin={{ s.vin_raw }}"
                            class="btn btn-outline" style="text-decoration: none; font-size: 0.8rem; padding: 0.3rem 0.8rem;">PDF</a>
                     </td>
                 </tr>

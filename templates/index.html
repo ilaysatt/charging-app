@@ -184,7 +184,7 @@
 <div class="container">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
         <h1 style="margin-bottom: 0;">Charging Tracker</h1>
-        <a href="/report" class="btn-settings" style="text-decoration: none;">Reports</a>
+        <a href="/s/{{ token }}/report" class="btn-settings" style="text-decoration: none;">Reports</a>
     </div>
 
     <div class="stats">
@@ -206,7 +206,7 @@
         <h2>Log a Charge</h2>
 
         <!-- Price setting -->
-        <form action="/settings" method="POST">
+        <form action="/s/{{ token }}/settings" method="POST">
             <div class="settings-row">
                 <div class="form-group">
                     <label>Price per kWh</label>
@@ -222,7 +222,7 @@
             <button class="tab" onclick="switchTab('percentage')">Battery %</button>
         </div>
 
-        <form action="/add" method="POST" id="charge-form">
+        <form action="/s/{{ token }}/add" method="POST" id="charge-form">
             <input type="hidden" name="input_method" id="input-method" value="kwh">
 
             <div class="form-row">
@@ -276,10 +276,10 @@
         <div style="padding: 1rem 1rem 0; display: flex; justify-content: space-between; align-items: center;">
             <h2 style="margin-bottom: 0;">Charge History</h2>
             {% if charges %}
-            <a href="/export" class="btn-settings" style="text-decoration: none;">Export CSV</a>
+            <a href="/s/{{ token }}/export" class="btn-settings" style="text-decoration: none;">Export CSV</a>
             {% endif %}
         </div>
-        <form class="filters" method="GET" action="/">
+        <form class="filters" method="GET" action="/s/{{ token }}">
             <div class="form-group">
                 <label>VIN</label>
                 <select name="vin" onchange="this.form.submit()">
@@ -329,7 +329,7 @@
                     </td>
                     <td><span class="method-badge">{{ c.input_method }}</span></td>
                     <td>
-                        <form action="/delete/{{ c.id }}" method="POST" style="display:inline;"
+                        <form action="/s/{{ token }}/delete/{{ c.id }}" method="POST" style="display:inline;"
                               onsubmit="return confirm('Delete this charge?')">
                             <button type="submit" class="btn-delete">Delete</button>
                         </form>
