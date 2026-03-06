@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Charge</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #0f172a;
+            color: #e2e8f0;
+            min-height: 100vh;
+            padding: 2rem 1rem;
+        }
+        .container { max-width: 600px; margin: 0 auto; }
+        h1 { font-size: 1.8rem; color: #38bdf8; }
+        .card {
+            background: #1e293b;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-top: 1.5rem;
+        }
+        .form-group { margin-bottom: 1rem; }
+        .form-group label { display: block; margin-bottom: 0.4rem; font-size: 0.85rem; color: #94a3b8; }
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 0.6rem 0.8rem;
+            border-radius: 8px;
+            border: 1px solid #334155;
+            background: #0f172a;
+            color: #e2e8f0;
+            font-size: 1rem;
+        }
+        .form-group input:focus { outline: none; border-color: #38bdf8; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+        .btn {
+            width: 100%;
+            padding: 0.7rem;
+            border-radius: 8px;
+            border: none;
+            background: #38bdf8;
+            color: #0f172a;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .btn:hover { background: #7dd3fc; }
+        .btn-outline {
+            background: transparent;
+            border: 1px solid #334155;
+            color: #94a3b8;
+            padding: 0.6rem 1.2rem;
+            border-radius: 8px;
+            text-decoration: none;
+            font-size: 0.85rem;
+        }
+        .btn-outline:hover { border-color: #38bdf8; color: #38bdf8; }
+        .photo-preview {
+            display: inline-block;
+            margin-top: 0.5rem;
+        }
+        .photo-preview img {
+            max-width: 150px;
+            border-radius: 8px;
+            border: 1px solid #334155;
+        }
+        .remove-photo {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            margin-top: 0.4rem;
+            font-size: 0.8rem;
+            color: #94a3b8;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h1>Edit Charge</h1>
+        <a href="/" class="btn-outline">Cancel</a>
+    </div>
+
+    <div class="card">
+        <form action="/edit/{{ charge.id }}" method="POST" enctype="multipart/form-data">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Date</label>
+                    <input type="date" name="date" value="{{ charge.date[:10] }}">
+                </div>
+                <div class="form-group">
+                    <label>VIN</label>
+                    <input type="text" name="vin" value="{{ charge.vin }}">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Input Method</label>
+                <select name="input_method" id="edit-method" onchange="toggleMethod()">
+                    <option value="kwh" {{ 'selected' if charge.input_method == 'kwh' }}>Direct kWh</option>
+                    <option value="percentage" {{ 'selected' if charge.input_method == 'percentage' }}>Battery %</option>
+                </select>
+            </div>
+
+            <div id="edit-kwh" style="{{ 'display:none' if charge.input_method == 'percentage' }}">
+                <div class="form-group">
+                    <label>Kilowatt-hours Charged</label>
+                    <input type="number" name="kwh" step="0.01" min="0" value="{{ '%.2f'|format(charge.kwh) }}">
+                </div>
+            </div>
+
+            <div id="edit-pct" style="{{ 'display:none' if charge.input_method == 'kwh' }}">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Start %</label>
+                        <input type="number" name="start_pct" step="0.1" min="0" max="100"
+                               value="{{ '%.1f'|format(charge.start_pct) if charge.start_pct is not none else '' }}">
+                    </div>
+                    <div class="form-group">
+                        <label>End %</label>
+                        <input type="number" name="end_pct" step="0.1" min="0" max="100"
+                               value="{{ '%.1f'|format(charge.end_pct) if charge.end_pct is not none else '' }}">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>kWh per 1%</label>
+                    <input type="number" name="kwh_per_pct" step="0.01" min="0" value="{{ kwh_per_pct }}">
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Photo - Start of Charge</label>
+                    {% if charge.photo_start %}
+                    <div class="photo-preview">
+                        <img src="/uploads/{{ charge.photo_start }}" alt="Start photo">
+                    </div>
+                    <label class="remove-photo">
+                        <input type="checkbox" name="remove_photo_start" value="1"> Remove
+                    </label>
+                    {% endif %}
+                    <input type="file" name="photo_start" accept="image/*">
+                </div>
+                <div class="form-group">
+                    <label>Photo - End of Charge</label>
+                    {% if charge.photo_end %}
+                    <div class="photo-preview">
+                        <img src="/uploads/{{ charge.photo_end }}" alt="End photo">
+                    </div>
+                    <label class="remove-photo">
+                        <input type="checkbox" name="remove_photo_end" value="1"> Remove
+                    </label>
+                    {% endif %}
+                    <input type="file" name="photo_end" accept="image/*">
+                </div>
+            </div>
+
+            <button type="submit" class="btn">Save Changes</button>
+        </form>
+    </div>
+</div>
+
+<script>
+    function toggleMethod() {
+        const m = document.getElementById('edit-method').value;
+        document.getElementById('edit-kwh').style.display = m === 'kwh' ? 'block' : 'none';
+        document.getElementById('edit-pct').style.display = m === 'percentage' ? 'block' : 'none';
+    }
+</script>
+</body>
+</html>

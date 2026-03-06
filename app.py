@@ -2,12 +2,16 @@ import csv
 import io
 import sqlite3
 import os
+import uuid
 from datetime import datetime, date
-from flask import Flask, render_template, request, redirect, url_for, jsonify, Response
+from flask import Flask, render_template, request, redirect, url_for, Response, send_from_directory
 from fpdf import FPDF
+from PIL import Image
 
 app = Flask(__name__)
 DB_PATH = os.path.join(os.path.dirname(__file__), "charging.db")
+UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "uploads")
+os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 
 def get_db():
@@ -36,11 +40,12 @@ def init_db():
             created_at TEXT NOT NULL DEFAULT (datetime('now'))
         )
     """)
-    # Add vin column to existing databases
-    try:
-        conn.execute("ALTER TABLE charges ADD COLUMN vin TEXT NOT NULL DEFAULT ''")
-    except sqlite3.OperationalError:
-        pass
+    # Add columns to existing databases
+    for col, default in [("vin", "''"), ("photo_start", "''"), ("photo_end", "''")]:
+        try:
+            conn.execute("ALTER TABLE charges ADD COLUMN %s TEXT NOT NULL DEFAULT %s" % (col, default))
+        except sqlite3.OperationalError:
+            pass
     # Default kWh per percent - user can change in settings
     conn.execute(
         "INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)",
@@ -69,6 +74,28 @@ def get_kwh_per_pct():
 
 def get_price_per_kwh():
     return get_setting("price_per_kwh", 0.35)
+
+
+def save_photo(file_storage):
+    """Save uploaded photo stripped of all metadata. Returns filename or empty string."""
+    if not file_storage or not file_storage.filename:
+        return ""
+    try:
+        img = Image.open(file_storage)
+        clean = Image.new(img.mode, img.size)
+        clean.putdata(list(img.getdata()))
+        filename = "%s.jpg" % uuid.uuid4().hex[:12]
+        clean.save(os.path.join(UPLOAD_DIR, filename), "JPEG", quality=85)
+        return filename
+    except Exception:
+        return ""
+
+
+def delete_photo(filename):
+    if filename:
+        path = os.path.join(UPLOAD_DIR, filename)
+        if os.path.exists(path):
+            os.remove(path)
 
 
 @app.route("/")
@@ -140,25 +167,90 @@ def add_charge():
         return redirect(url_for("index"))
 
     vin = (request.form.get("vin") or "").strip().upper()
+    photo_start = save_photo(request.files.get("photo_start"))
+    photo_end = save_photo(request.files.get("photo_end"))
 
     conn = get_db()
     conn.execute(
-        """INSERT INTO charges (date, kwh, start_pct, end_pct, input_method, vin)
-           VALUES (?, ?, ?, ?, ?, ?)""",
-        (date_str, kwh, start_pct, end_pct, input_method, vin),
+        """INSERT INTO charges (date, kwh, start_pct, end_pct, input_method, vin, photo_start, photo_end)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+        (date_str, kwh, start_pct, end_pct, input_method, vin, photo_start, photo_end),
     )
     conn.commit()
     conn.close()
     return redirect(url_for("index"))
 
 
+@app.route("/edit/<int:charge_id>", methods=["GET", "POST"])
+def edit_charge(charge_id):
+    conn = get_db()
+    charge = conn.execute("SELECT * FROM charges WHERE id = ?", (charge_id,)).fetchone()
+    if not charge:
+        conn.close()
+        return redirect(url_for("index"))
+
+    if request.method == "POST":
+        date_str = request.form.get("date") or charge["date"]
+        vin = (request.form.get("vin") or "").strip().upper()
+
+        # Handle photo uploads — keep existing if no new upload
+        photo_start = charge["photo_start"]
+        if request.files.get("photo_start") and request.files["photo_start"].filename:
+            delete_photo(photo_start)
+            photo_start = save_photo(request.files["photo_start"])
+        if request.form.get("remove_photo_start"):
+            delete_photo(photo_start)
+            photo_start = ""
+
+        photo_end = charge["photo_end"]
+        if request.files.get("photo_end") and request.files["photo_end"].filename:
+            delete_photo(photo_end)
+            photo_end = save_photo(request.files["photo_end"])
+        if request.form.get("remove_photo_end"):
+            delete_photo(photo_end)
+            photo_end = ""
+
+        input_method = request.form.get("input_method") or charge["input_method"]
+        if input_method == "kwh":
+            kwh = float(request.form.get("kwh") or charge["kwh"])
+            start_pct = None
+            end_pct = None
+        else:
+            start_pct = float(request.form.get("start_pct") or 0)
+            end_pct = float(request.form.get("end_pct") or 0)
+            kwh_per_pct = float(request.form.get("kwh_per_pct") or get_kwh_per_pct())
+            kwh = round((end_pct - start_pct) * kwh_per_pct, 2)
+
+        conn.execute(
+            """UPDATE charges SET date=?, kwh=?, start_pct=?, end_pct=?, input_method=?,
+               vin=?, photo_start=?, photo_end=? WHERE id=?""",
+            (date_str, kwh, start_pct, end_pct, input_method, vin, photo_start, photo_end, charge_id),
+        )
+        conn.commit()
+        conn.close()
+        return redirect(url_for("index"))
+
+    kwh_per_pct = get_kwh_per_pct()
+    conn.close()
+    return render_template("edit.html", charge=charge, kwh_per_pct=kwh_per_pct)
+
+
 @app.route("/delete/<int:charge_id>", methods=["POST"])
 def delete_charge(charge_id):
     conn = get_db()
+    charge = conn.execute("SELECT photo_start, photo_end FROM charges WHERE id = ?", (charge_id,)).fetchone()
+    if charge:
+        delete_photo(charge["photo_start"])
+        delete_photo(charge["photo_end"])
     conn.execute("DELETE FROM charges WHERE id = ?", (charge_id,))
     conn.commit()
     conn.close()
     return redirect(url_for("index"))
+
+
+@app.route("/uploads/<filename>")
+def uploaded_file(filename):
+    return send_from_directory(UPLOAD_DIR, filename)
 
 
 @app.route("/settings", methods=["POST"])

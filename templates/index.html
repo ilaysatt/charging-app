@@ -146,6 +146,11 @@
             font-size: 0.8rem;
         }
         .btn-delete:hover { border-color: #ef4444; color: #ef4444; }
+        .photo-link {
+            color: #38bdf8;
+            font-size: 0.8rem;
+            margin-right: 0.4rem;
+        }
         .empty-state { text-align: center; padding: 2rem; color: #64748b; }
         .filters {
             display: flex;
@@ -242,7 +247,7 @@
             <button class="tab" onclick="switchTab('percentage')">Battery %</button>
         </div>
 
-        <form action="/add" method="POST" id="charge-form">
+        <form action="/add" method="POST" id="charge-form" enctype="multipart/form-data">
             <input type="hidden" name="input_method" id="input-method" value="kwh">
 
             <div class="form-row">
@@ -288,6 +293,17 @@
                 <div id="calc-preview" class="calc-preview" style="display:none;"></div>
             </div>
 
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Photo - Start of Charge</label>
+                    <input type="file" name="photo_start" accept="image/*">
+                </div>
+                <div class="form-group">
+                    <label>Photo - End of Charge</label>
+                    <input type="file" name="photo_end" accept="image/*">
+                </div>
+            </div>
+
             <button type="submit" class="btn-submit">Add Charge</button>
         </form>
     </div>
@@ -329,6 +345,7 @@
                     <th>Cost</th>
                     <th>Details</th>
                     <th>Method</th>
+                    <th>Photos</th>
                     <th></th>
                 </tr>
             </thead>
@@ -349,6 +366,16 @@
                     </td>
                     <td><span class="method-badge">{{ c.input_method }}</span></td>
                     <td>
+                        {% if c.photo_start %}
+                            <a href="/uploads/{{ c.photo_start }}" target="_blank" class="photo-link">Start</a>
+                        {% endif %}
+                        {% if c.photo_end %}
+                            <a href="/uploads/{{ c.photo_end }}" target="_blank" class="photo-link">End</a>
+                        {% endif %}
+                        {% if not c.photo_start and not c.photo_end %}&mdash;{% endif %}
+                    </td>
+                    <td style="white-space: nowrap;">
+                        <a href="/edit/{{ c.id }}" class="btn-delete" style="text-decoration:none;">Edit</a>
                         <form action="/delete/{{ c.id }}" method="POST" style="display:inline;"
                               onsubmit="return confirm('Delete this charge?')">
                             <button type="submit" class="btn-delete">Delete</button>
