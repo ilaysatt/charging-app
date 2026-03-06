@@ -31,9 +31,15 @@ def init_db():
             start_pct REAL,
             end_pct REAL,
             input_method TEXT NOT NULL,
+            vin TEXT NOT NULL DEFAULT '',
             created_at TEXT NOT NULL DEFAULT (datetime('now'))
         )
     """)
+    # Add vin column to existing databases
+    try:
+        conn.execute("ALTER TABLE charges ADD COLUMN vin TEXT NOT NULL DEFAULT ''")
+    except sqlite3.OperationalError:
+        pass
     # Default kWh per percent - user can change in settings
     conn.execute(
         "INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)",
@@ -55,12 +61,33 @@ def get_kwh_per_pct():
 @app.route("/")
 def index():
     conn = get_db()
-    charges = conn.execute(
-        "SELECT * FROM charges ORDER BY date DESC, id DESC"
-    ).fetchall()
-    total_kwh = conn.execute("SELECT COALESCE(SUM(kwh), 0) as total FROM charges").fetchone()["total"]
+
+    filter_vin = request.args.get("vin", "")
+    filter_month = request.args.get("month", "")
+
+    query = "SELECT * FROM charges WHERE 1=1"
+    params = []
+    if filter_vin:
+        query += " AND vin = ?"
+        params.append(filter_vin)
+    if filter_month:
+        query += " AND strftime('%Y-%m', date) = ?"
+        params.append(filter_month)
+    query += " ORDER BY date DESC, id DESC"
+
+    charges = conn.execute(query, params).fetchall()
+    total_kwh = sum(c["kwh"] for c in charges)
     count = len(charges)
     avg_kwh = total_kwh / count if count > 0 else 0
+
+    # Get distinct VINs and months for filter dropdowns
+    vins = [r[0] for r in conn.execute(
+        "SELECT DISTINCT vin FROM charges WHERE vin != '' ORDER BY vin"
+    ).fetchall()]
+    months = [r[0] for r in conn.execute(
+        "SELECT DISTINCT strftime('%Y-%m', date) FROM charges ORDER BY 1 DESC"
+    ).fetchall()]
+
     kwh_per_pct = get_kwh_per_pct()
     conn.close()
     return render_template(
@@ -70,13 +97,17 @@ def index():
         avg_kwh=round(avg_kwh, 2),
         count=count,
         kwh_per_pct=kwh_per_pct,
+        vins=vins,
+        months=months,
+        filter_vin=filter_vin,
+        filter_month=filter_month,
     )
 
 
 @app.route("/add", methods=["POST"])
 def add_charge():
     input_method = request.form.get("input_method")
-    date_str = request.form.get("date") or datetime.now().strftime("%Y-%m-%dT%H:%M")
+    date_str = request.form.get("date") or datetime.now().strftime("%Y-%m-%d")
 
     if input_method == "kwh":
         kwh = float(request.form.get("kwh") or 0)
@@ -93,11 +124,13 @@ def add_charge():
     if kwh <= 0:
         return redirect(url_for("index"))
 
+    vin = (request.form.get("vin") or "").strip().upper()
+
     conn = get_db()
     conn.execute(
-        """INSERT INTO charges (date, kwh, start_pct, end_pct, input_method)
-           VALUES (?, ?, ?, ?, ?)""",
-        (date_str, kwh, start_pct, end_pct, input_method),
+        """INSERT INTO charges (date, kwh, start_pct, end_pct, input_method, vin)
+           VALUES (?, ?, ?, ?, ?, ?)""",
+        (date_str, kwh, start_pct, end_pct, input_method, vin),
     )
     conn.commit()
     conn.close()
@@ -137,10 +170,11 @@ def export_csv():
 
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["Date", "kWh", "Start %", "End %", "Input Method"])
+    writer.writerow(["Date", "VIN", "kWh", "Start %", "End %", "Input Method"])
     for c in charges:
         writer.writerow([
             c["date"],
+            c["vin"],
             c["kwh"],
             c["start_pct"] if c["start_pct"] is not None else "",
             c["end_pct"] if c["end_pct"] is not None else "",
