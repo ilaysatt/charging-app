@@ -1,7 +1,11 @@
 blinker==1.9.0
 click==8.3.1
+defusedxml==0.7.1
 Flask==3.1.0
+fonttools==4.61.1
+fpdf2==2.8.7
 itsdangerous==2.2.0
 Jinja2==3.1.6
 MarkupSafe==3.0.3
+pillow==12.1.1
 Werkzeug==3.1.6

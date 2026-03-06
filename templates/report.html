@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Charging Report</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #0f172a;
+            color: #e2e8f0;
+            min-height: 100vh;
+            padding: 2rem 1rem;
+        }
+        .container { max-width: 800px; margin: 0 auto; }
+        h1 { font-size: 1.8rem; color: #38bdf8; }
+        h2 { font-size: 1.2rem; margin-bottom: 1rem; color: #94a3b8; }
+        a { color: #38bdf8; }
+        .card {
+            background: #1e293b;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        .form-row { display: flex; gap: 1rem; flex-wrap: wrap; align-items: end; }
+        .form-group { margin-bottom: 1rem; }
+        .form-group label { display: block; margin-bottom: 0.4rem; font-size: 0.85rem; color: #94a3b8; }
+        .form-group input {
+            padding: 0.6rem 0.8rem;
+            border-radius: 8px;
+            border: 1px solid #334155;
+            background: #0f172a;
+            color: #e2e8f0;
+            font-size: 1rem;
+        }
+        .form-group input:focus { outline: none; border-color: #38bdf8; }
+        .btn {
+            padding: 0.6rem 1.2rem;
+            border-radius: 8px;
+            border: none;
+            background: #38bdf8;
+            color: #0f172a;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .btn:hover { background: #7dd3fc; }
+        .btn-outline {
+            background: transparent;
+            border: 1px solid #334155;
+            color: #94a3b8;
+        }
+        .btn-outline:hover { border-color: #38bdf8; color: #38bdf8; }
+        table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+        thead th {
+            text-align: left;
+            padding: 0.8rem 1rem;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            color: #64748b;
+            border-bottom: 1px solid #334155;
+        }
+        tbody td {
+            padding: 0.7rem 1rem;
+            font-size: 0.9rem;
+            border-bottom: 1px solid #0f172a;
+        }
+        tfoot td {
+            padding: 0.8rem 1rem;
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: #38bdf8;
+            border-top: 2px solid #334155;
+        }
+        .kwh-cell { color: #38bdf8; font-weight: 600; }
+        .empty-state { text-align: center; padding: 2rem; color: #64748b; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+        <h1>Charging Report</h1>
+        <a href="/" class="btn btn-outline" style="text-decoration: none;">Back</a>
+    </div>
+
+    <div class="card">
+        <h2>Select Date Range</h2>
+        <form method="GET" action="/report">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>From</label>
+                    <input type="date" name="from" value="{{ date_from }}" required>
+                </div>
+                <div class="form-group">
+                    <label>To</label>
+                    <input type="date" name="to" value="{{ date_to }}" required>
+                </div>
+                <div class="form-group">
+                    <label>&nbsp;</label>
+                    <button type="submit" class="btn">Generate</button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    {% if summary %}
+    <div class="card">
+        <h2>Summary ({{ date_from }} to {{ date_to }})</h2>
+        <p style="font-size: 0.85rem; color: #64748b; margin-top: 0.3rem;">Price per kWh: {{ price_per_kwh }}</p>
+        <table>
+            <thead>
+                <tr>
+                    <th>VIN</th>
+                    <th>Sessions</th>
+                    <th>Total kWh</th>
+                    <th>Total Cost</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for s in summary %}
+                <tr>
+                    <td>{{ s.vin }}</td>
+                    <td>{{ s.sessions }}</td>
+                    <td class="kwh-cell">{{ "%.2f"|format(s.total_kwh) }}</td>
+                    <td>{{ "%.2f"|format(s.total_cost) }}</td>
+                    <td>
+                        <a href="/report/pdf?from={{ date_from }}&to={{ date_to }}&vin={{ s.vin_raw }}"
+                           class="btn btn-outline" style="text-decoration: none; font-size: 0.8rem; padding: 0.3rem 0.8rem;">PDF</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td>TOTAL</td>
+                    <td>{{ summary|sum(attribute='sessions') }}</td>
+                    <td>{{ "%.2f"|format(summary|sum(attribute='total_kwh')) }}</td>
+                    <td>{{ "%.2f"|format(summary|sum(attribute='total_cost')) }}</td>
+                    <td></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+    {% elif date_from and date_to %}
+    <div class="card">
+        <div class="empty-state">No charges found for this date range.</div>
+    </div>
+    {% endif %}
+</div>
+</body>
+</html>

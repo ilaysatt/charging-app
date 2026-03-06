@@ -182,7 +182,10 @@
 </head>
 <body>
 <div class="container">
-    <h1>Charging Tracker</h1>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+        <h1 style="margin-bottom: 0;">Charging Tracker</h1>
+        <a href="/report" class="btn-settings" style="text-decoration: none;">Reports</a>
+    </div>
 
     <div class="stats">
         <div class="stat-card">
@@ -201,6 +204,17 @@
 
     <div class="form-card">
         <h2>Log a Charge</h2>
+
+        <!-- Price setting -->
+        <form action="/settings" method="POST">
+            <div class="settings-row">
+                <div class="form-group">
+                    <label>Price per kWh</label>
+                    <input type="number" name="price_per_kwh" step="0.01" min="0" value="{{ price_per_kwh }}">
+                </div>
+                <button type="submit" class="btn-settings">Update</button>
+            </div>
+        </form>
 
         <!-- Input method tabs -->
         <div class="tabs">
@@ -292,6 +306,7 @@
                     <th>Date</th>
                     <th>VIN</th>
                     <th>kWh</th>
+                    <th>Cost</th>
                     <th>Details</th>
                     <th>Method</th>
                     <th></th>
@@ -303,6 +318,7 @@
                     <td>{{ c.date[:10] }}</td>
                     <td>{{ c.vin or '—' }}</td>
                     <td class="kwh-cell">{{ "%.2f"|format(c.kwh) }}</td>
+                    <td>{{ "%.2f"|format(c.kwh * price_per_kwh) }}</td>
                     <td>
                         {% if c.input_method == 'percentage' %}
                             {{ "%.0f"|format(c.start_pct) }}% &rarr; {{ "%.0f"|format(c.end_pct) }}%
