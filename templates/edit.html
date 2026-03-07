@@ -96,6 +96,11 @@
             </div>
 
             <div class="form-group">
+                <label>Kilometerage</label>
+                <input type="number" name="km" step="0.1" min="0" value="{{ '%.1f'|format(charge.km) if charge.km is not none else '' }}">
+            </div>
+
+            <div class="form-group">
                 <label>Input Method</label>
                 <select name="input_method" id="edit-method" onchange="toggleMethod()">
                     <option value="kwh" {{ 'selected' if charge.input_method == 'kwh' }}>Direct kWh</option>

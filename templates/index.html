@@ -267,6 +267,11 @@
                 </div>
             </div>
 
+            <div class="form-group">
+                <label>Kilometerage</label>
+                <input type="number" name="km" step="0.1" min="0" placeholder="e.g. 12345">
+            </div>
+
             <!-- kWh input -->
             <div id="kwh-fields">
                 <div class="form-group">
@@ -351,6 +356,7 @@
                 <tr>
                     <th>Date</th>
                     <th>VIN</th>
+                    <th>km</th>
                     <th>kWh</th>
                     <th>Cost</th>
                     <th>Details</th>
@@ -364,6 +370,7 @@
                 <tr>
                     <td>{{ c.date[:10] }}</td>
                     <td>{{ c.vin or '—' }}</td>
+                    <td>{{ "%.1f"|format(c.km) if c.km else '—' }}</td>
                     <td class="kwh-cell">{{ "%.2f"|format(c.kwh) }}</td>
                     <td>{{ "%.4f"|format(c.kwh * price_per_kwh) }}</td>
                     <td>

@@ -41,9 +41,9 @@ def init_db():
         )
     """)
     # Add columns to existing databases
-    for col, default in [("vin", "''"), ("photo_start", "''"), ("photo_end", "''")]:
+    for col, col_type, default in [("vin", "TEXT NOT NULL", "''"), ("photo_start", "TEXT NOT NULL", "''"), ("photo_end", "TEXT NOT NULL", "''"), ("km", "REAL", "NULL")]:
         try:
-            conn.execute("ALTER TABLE charges ADD COLUMN %s TEXT NOT NULL DEFAULT %s" % (col, default))
+            conn.execute("ALTER TABLE charges ADD COLUMN %s %s DEFAULT %s" % (col, col_type, default))
         except sqlite3.OperationalError:
             pass
     # Default kWh per percent - user can change in settings
@@ -188,6 +188,8 @@ def add_charge():
         return redirect(url_for("index"))
 
     vin = (request.form.get("vin") or "").strip().upper()
+    km_val = request.form.get("km") or None
+    km = float(km_val) if km_val else None
     if input_method == "percentage":
         photo_start = save_photo(request.files.get("photo_start_pct"))
     else:
@@ -196,9 +198,9 @@ def add_charge():
 
     conn = get_db()
     conn.execute(
-        """INSERT INTO charges (date, kwh, start_pct, end_pct, input_method, vin, photo_start, photo_end)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-        (date_str, kwh, start_pct, end_pct, input_method, vin, photo_start, photo_end),
+        """INSERT INTO charges (date, kwh, start_pct, end_pct, input_method, vin, photo_start, photo_end, km)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (date_str, kwh, start_pct, end_pct, input_method, vin, photo_start, photo_end, km),
     )
     conn.commit()
     conn.close()
@@ -245,10 +247,13 @@ def edit_charge(charge_id):
             kwh_per_pct = float(request.form.get("kwh_per_pct") or get_kwh_per_pct())
             kwh = round((end_pct - start_pct) * kwh_per_pct, 2)
 
+        km_val = request.form.get("km") or None
+        km = float(km_val) if km_val else None
+
         conn.execute(
             """UPDATE charges SET date=?, kwh=?, start_pct=?, end_pct=?, input_method=?,
-               vin=?, photo_start=?, photo_end=? WHERE id=?""",
-            (date_str, kwh, start_pct, end_pct, input_method, vin, photo_start, photo_end, charge_id),
+               vin=?, photo_start=?, photo_end=?, km=? WHERE id=?""",
+            (date_str, kwh, start_pct, end_pct, input_method, vin, photo_start, photo_end, km, charge_id),
         )
         conn.commit()
         conn.close()
@@ -305,13 +310,14 @@ def export_csv():
 
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["Date", "VIN", "kWh", "Cost", "Start %", "End %", "Input Method"])
+    writer.writerow(["Date", "VIN", "kWh", "Cost", "km", "Start %", "End %", "Input Method"])
     for c in charges:
         writer.writerow([
             c["date"],
             c["vin"],
             c["kwh"],
             round(c["kwh"] * price_per_kwh, 4),
+            c["km"] if c["km"] is not None else "",
             c["start_pct"] if c["start_pct"] is not None else "",
             c["end_pct"] if c["end_pct"] is not None else "",
             c["input_method"],
@@ -399,12 +405,13 @@ def report_pdf():
     # Data table header
     pdf.set_font("Helvetica", "B", 10)
     pdf.cell(10, 8, "#", border=1, align="C")
-    pdf.cell(28, 8, "Date", border=1)
-    pdf.cell(30, 8, "kWh", border=1, align="C")
-    pdf.cell(30, 8, "Cost", border=1, align="C")
-    pdf.cell(22, 8, "Start %", border=1, align="C")
-    pdf.cell(22, 8, "End %", border=1, align="C")
-    pdf.cell(28, 8, "Method", border=1, align="C")
+    pdf.cell(24, 8, "Date", border=1)
+    pdf.cell(22, 8, "km", border=1, align="C")
+    pdf.cell(24, 8, "kWh", border=1, align="C")
+    pdf.cell(28, 8, "Cost", border=1, align="C")
+    pdf.cell(20, 8, "Start %", border=1, align="C")
+    pdf.cell(20, 8, "End %", border=1, align="C")
+    pdf.cell(22, 8, "Method", border=1, align="C")
     pdf.ln()
 
     # Create internal links for each row
@@ -430,21 +437,23 @@ def report_pdf():
             pdf.set_text_color(0, 0, 0)
         else:
             pdf.cell(10, 8, str(i), border=1, align="C")
-        pdf.cell(28, 8, c["date"][:10], border=1)
-        pdf.cell(30, 8, "%.2f" % c["kwh"], border=1, align="C")
-        pdf.cell(30, 8, "%.4f" % cost, border=1, align="C")
-        pdf.cell(22, 8, "%.0f" % c["start_pct"] if c["start_pct"] is not None else "-", border=1, align="C")
-        pdf.cell(22, 8, "%.0f" % c["end_pct"] if c["end_pct"] is not None else "-", border=1, align="C")
-        pdf.cell(28, 8, c["input_method"], border=1, align="C")
+        pdf.cell(24, 8, c["date"][:10], border=1)
+        pdf.cell(22, 8, "%.1f" % c["km"] if c["km"] is not None else "-", border=1, align="C")
+        pdf.cell(24, 8, "%.2f" % c["kwh"], border=1, align="C")
+        pdf.cell(28, 8, "%.4f" % cost, border=1, align="C")
+        pdf.cell(20, 8, "%.0f" % c["start_pct"] if c["start_pct"] is not None else "-", border=1, align="C")
+        pdf.cell(20, 8, "%.0f" % c["end_pct"] if c["end_pct"] is not None else "-", border=1, align="C")
+        pdf.cell(22, 8, c["input_method"], border=1, align="C")
         pdf.ln()
 
     # Totals row
     pdf.set_font("Helvetica", "B", 10)
     pdf.cell(10, 8, "", border=1)
-    pdf.cell(28, 8, "TOTAL", border=1)
-    pdf.cell(30, 8, "%.2f" % total_kwh, border=1, align="C")
-    pdf.cell(30, 8, "%.4f" % total_cost, border=1, align="C")
-    pdf.cell(72, 8, "", border=1)
+    pdf.cell(24, 8, "TOTAL", border=1)
+    pdf.cell(22, 8, "", border=1)
+    pdf.cell(24, 8, "%.2f" % total_kwh, border=1, align="C")
+    pdf.cell(28, 8, "%.4f" % total_cost, border=1, align="C")
+    pdf.cell(62, 8, "", border=1)
 
     # Photos table
     photos_exist = any(c["photo_start"] or c["photo_end"] for c in charges)
