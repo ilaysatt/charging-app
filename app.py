@@ -9,8 +9,8 @@ from fpdf import FPDF
 from PIL import Image
 
 app = Flask(__name__)
-DB_PATH = os.path.join(os.path.dirname(__file__), "charging.db")
-UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "uploads")
+DB_PATH = os.environ.get("DB_PATH", os.path.join(os.path.dirname(__file__), "charging.db"))
+UPLOAD_DIR = os.environ.get("UPLOAD_DIR", os.path.join(os.path.dirname(__file__), "uploads"))
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 
